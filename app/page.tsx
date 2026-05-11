@@ -372,7 +372,7 @@ export default function OrderPage() {
               </ScrollArea>
             </div>
 
-            <ScrollArea className="h-full">
+            <ScrollArea className="flex-1 min-h-0">
               <div className="flex flex-col gap-4 p-4 pb-32">
                 
                 {/* RECENT ORDERS - QUICK ACCESS */}
@@ -467,7 +467,7 @@ export default function OrderPage() {
             </ScrollArea>
           </>
         ) : activeTab === "preparing" ? (
-          <ScrollArea className="h-full bg-secondary/8">
+          <ScrollArea className="flex-1 min-h-0 bg-secondary/8">
             <div className="p-4 space-y-4 pb-32">
               <div className="flex justify-between items-center mb-2 px-1">
                 <div className="flex items-center gap-2">
@@ -592,7 +592,7 @@ export default function OrderPage() {
             </div>
           </ScrollArea>
         ) : (
-          <ScrollArea className="h-full bg-secondary/5">
+          <ScrollArea className="flex-1 min-h-0 bg-secondary/5">
             <div className="p-4 space-y-4 pb-32">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
