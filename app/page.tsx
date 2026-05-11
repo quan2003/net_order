@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
-import { Search, ShoppingCart, Plus, Info, X, Check, Truck, ChefHat, ChevronDown, History, Zap, ClipboardList, BarChart3, Trash2 } from "lucide-react";
+import { Search, ShoppingCart, Plus, Info, X, Check, Truck, ChefHat, ChevronDown, ChevronRight, History, Zap, ClipboardList, BarChart3, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -382,21 +382,55 @@ export default function OrderPage() {
                       <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Món gần đây</span>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
-                      {recentProducts.map(p => (
-                        <button
-                          key={p.id}
-                          onClick={() => addToCart(p)}
-                          className="flex items-center gap-3 p-2 rounded-xl bg-secondary/20 border border-border/50 hover:bg-secondary/40 active:scale-95 transition-all text-left"
+                      {recentProducts.map(product => {
+                        const cartItem = cart.find(i => i.product.id === product.id);
+                        const qty = cartItem ? cartItem.quantity : 0;
+                        return (
+                        <div
+                          key={product.id}
+                          className="flex items-center gap-3 p-2 rounded-xl bg-secondary/20 border border-border/50 transition-all text-left group hover:bg-secondary/40"
                         >
-                          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-lg">
-                            {p.category === "THỨC UỐNG" ? "🥤" : "🍜"}
+                          <div 
+                            className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-lg shrink-0 cursor-pointer active:scale-95 transition-transform"
+                            onClick={() => product.recipe && setRecipeProduct(product)}
+                          >
+                            {product.category === "THỨC UỐNG" ? "🥤" : "🍜"}
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[11px] font-bold truncate leading-none">{p.name}</p>
-                            <p className="text-[10px] text-primary font-black mt-1">{p.price.toLocaleString("vi-VN")}đ</p>
+                          <div 
+                            className="flex-1 min-w-0 py-0.5 cursor-pointer"
+                            onClick={() => qty === 0 && addToCart(product)}
+                          >
+                            <p className="text-[11px] font-bold truncate leading-none">{product.name}</p>
+                            <p className="text-[10px] text-primary font-black mt-1">{product.price.toLocaleString("vi-VN")}đ</p>
                           </div>
-                        </button>
-                      ))}
+                          <div className="shrink-0 flex items-center">
+                            {qty > 0 ? (
+                              <div className="flex items-center bg-primary/20 rounded-lg border border-primary/30 h-7">
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); updateQuantity(product.id, -1); }}
+                                  className="w-7 h-full flex items-center justify-center text-primary font-bold active:scale-90 transition-transform"
+                                >
+                                  -
+                                </button>
+                                <span className="w-3 text-center text-[10px] font-black text-primary">{qty}</span>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); updateQuantity(product.id, 1); }}
+                                  className="w-7 h-full flex items-center justify-center text-primary font-bold active:scale-90 transition-transform"
+                                >
+                                  +
+                                </button>
+                              </div>
+                            ) : (
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); addToCart(product); }}
+                                className="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold active:scale-90 transition-transform hover:bg-primary hover:text-primary-foreground"
+                              >
+                                <Plus className="w-3 h-3" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )})}
                     </div>
                   </div>
                 )}
@@ -407,7 +441,10 @@ export default function OrderPage() {
                     <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{activeCategory}</span>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
-                    {filteredProducts.map((product, index) => (
+                    {filteredProducts.map((product, index) => {
+                      const cartItem = cart.find(i => i.product.id === product.id);
+                      const qty = cartItem ? cartItem.quantity : 0;
+                      return (
                       <motion.div
                         key={product.id}
                         initial={{ opacity: 0, y: 16, scale: 0.98 }}
@@ -448,18 +485,36 @@ export default function OrderPage() {
                               <span className="text-primary font-semibold text-sm">
                                 {product.price.toLocaleString("vi-VN")}đ
                               </span>
-                              <Button
-                                className="add-product-button bg-primary text-primary-foreground hover:bg-primary/90 border border-white/10 active:scale-90 transition-transform"
-                                onClick={() => addToCart(product)}
-                                aria-label={`Thêm ${product.name}`}
-                              >
-                                <Plus className="size-5 text-white stroke-[2.5]" />
-                              </Button>
+                              {qty > 0 ? (
+                                <div className="flex items-center bg-primary/20 rounded-full border border-primary/30 h-9">
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); updateQuantity(product.id, -1); }}
+                                    className="w-9 h-full flex items-center justify-center text-primary font-bold active:scale-90 transition-transform"
+                                  >
+                                    -
+                                  </button>
+                                  <span className="w-4 text-center text-sm font-black text-primary">{qty}</span>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); updateQuantity(product.id, 1); }}
+                                    className="w-9 h-full flex items-center justify-center text-primary font-bold active:scale-90 transition-transform"
+                                  >
+                                    +
+                                  </button>
+                                </div>
+                              ) : (
+                                <Button
+                                  className="w-9 h-9 p-0 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 border border-white/10 active:scale-90 transition-transform shrink-0"
+                                  onClick={(e) => { e.stopPropagation(); addToCart(product); }}
+                                  aria-label={`Thêm ${product.name}`}
+                                >
+                                  <Plus className="size-5 text-white stroke-[2.5]" />
+                                </Button>
+                              )}
                             </div>
                           </CardContent>
                         </Card>
                       </motion.div>
-                    ))}
+                    )})}
                   </div>
                 </div>
               </div>
@@ -1026,6 +1081,44 @@ export default function OrderPage() {
           </SheetFooter>
         </SheetContent>
       </Sheet>
+
+      {/* FLOATING BOTTOM CART (Like GrabFood) */}
+      <AnimatePresence>
+        {totalItems > 0 && activeTab === "menu" && (
+          <motion.div
+            initial={{ opacity: 0, y: 100, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 100, scale: 0.95 }}
+            transition={{ type: "spring", bounce: 0.4, duration: 0.6 }}
+            className="fixed bottom-[calc(90px+env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 w-[calc(100%-32px)] max-w-[calc(448px-32px)] z-40"
+          >
+            <div 
+              className="bg-primary text-primary-foreground h-[64px] rounded-2xl flex items-center justify-between px-5 shadow-[0_8px_30px_rgba(0,255,255,0.35)] cursor-pointer active:scale-[0.98] transition-transform overflow-hidden relative group"
+              onClick={() => setIsCartOpen(true)}
+            >
+              <div className="flex items-center gap-3 relative z-10">
+                <div className="relative">
+                  <div className={cn("w-10 h-10 rounded-xl bg-primary-foreground/20 flex items-center justify-center", cartPulse && "cart-pulse")}>
+                    <ShoppingCart className="w-5 h-5 text-primary-foreground" />
+                  </div>
+                  <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-background text-foreground text-[10px] font-black rounded-full flex items-center justify-center border-2 border-primary">
+                    {totalItems}
+                  </span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="font-bold text-sm leading-tight">{totalItems} món</span>
+                  <span className="text-[10px] font-medium opacity-80 uppercase tracking-widest mt-0.5">{selectedMachineId}</span>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-2 relative z-10">
+                <span className="font-black text-lg">{totalAmount.toLocaleString("vi-VN")}đ</span>
+                <ChevronRight className="w-5 h-5 opacity-70" />
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* BOTTOM NAVIGATION TABS */}
       <div className="bottom-nav glass border-t border-white/6 flex items-center justify-around px-4 z-30 rounded-t-3xl">
