@@ -93,9 +93,21 @@
     background: linear-gradient(135deg, oklch(0.8 0.15 190) 0%, oklch(0.6 0.2 280) 100%);
   }
   .app-shell {
+    min-height: 100dvh;
     background:
       radial-gradient(circle at 50% -10%, rgba(0, 255, 255, 0.12), transparent 34%),
       linear-gradient(180deg, #050816 0%, #071326 100%);
+  }
+  .bottom-nav {
+    position: fixed;
+    left: 50%;
+    right: auto;
+    bottom: 0;
+    width: min(100%, 28rem);
+    height: calc(80px + env(safe-area-inset-bottom));
+    padding-bottom: env(safe-area-inset-bottom);
+    transform: translateX(-50%);
+    box-shadow: 0 -18px 35px rgba(0, 0, 0, 0.28);
   }
   .product-card {
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
-import { Search, ShoppingCart, Plus, Info, X, Check, Truck, ChefHat, ChevronDown, History, Zap, ClipboardList, BarChart3 } from "lucide-react";
+import { Search, ShoppingCart, Plus, Info, X, Check, Truck, ChefHat, ChevronDown, History, Zap, ClipboardList, BarChart3, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -32,11 +32,12 @@ const ORDER_RETENTION_MS = 24 * 60 * 60 * 1000;
 
 type OrderStatus = "pending" | "preparing" | "serving" | "completed";
 type MachineStatus = Exclude<OrderStatus, "completed"> | "empty";
+type CartItem = { product: Product; quantity: number };
 
 type Order = {
   id: string;
   machineId: string;
-  items: { product: Product; quantity: number }[];
+  items: CartItem[];
   total: number;
   status: OrderStatus;
   time: string;
@@ -66,7 +67,7 @@ export default function OrderPage() {
   const [activeCategory, setActiveCategory] = useState("TẤT CẢ");
   const [searchQuery, setSearchQuery] = useState("");
   const [machineSearch, setMachineSearch] = useState("");
-  const [cart, setCart] = useState<{ product: Product; quantity: number }[]>([]);
+  const [cartsByMachine, setCartsByMachine] = useState<Record<string, CartItem[]>>({});
   const [orders, setOrders] = useState<Order[]>([]);
   const [recentProductIds, setRecentProductIds] = useState<string[]>([]);
 
@@ -93,6 +94,30 @@ export default function OrderPage() {
     });
     return statuses;
   }, [orders]);
+
+  const activeOrdersByMachine = useMemo(() => {
+    return orders.reduce<Record<string, Order[]>>((acc, order) => {
+      if (order.status === "completed") return acc;
+      acc[order.machineId] = [...(acc[order.machineId] || []), order];
+      return acc;
+    }, {});
+  }, [orders]);
+
+  const completedOrdersByMachine = useMemo(() => {
+    return orders.reduce<Record<string, Order[]>>((acc, order) => {
+      if (order.status !== "completed") return acc;
+      acc[order.machineId] = [...(acc[order.machineId] || []), order];
+      return acc;
+    }, {});
+  }, [orders]);
+
+  const cartCountsByMachine = useMemo(() => {
+    return Object.entries(cartsByMachine).reduce<Record<string, number>>((acc, [machineId, items]) => {
+      const count = items.reduce((sum, item) => sum + item.quantity, 0);
+      if (count > 0) acc[machineId] = count;
+      return acc;
+    }, {});
+  }, [cartsByMachine]);
 
   const filteredMachines = useMemo(() => {
     if (!machineSearch) return MACHINES;
@@ -143,33 +168,46 @@ export default function OrderPage() {
     setCartPulse(true);
     setTimeout(() => setCartPulse(false), 300);
 
-    setCart((prev) => {
-      const existing = prev.find((item) => item.product.id === product.id);
+    setCartsByMachine((prev) => {
+      const machineCart = prev[selectedMachineId] || [];
+      let nextMachineCart: CartItem[];
+      const existing = machineCart.find((item) => item.product.id === product.id);
       if (existing) {
-        return prev.map((item) => item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
+        nextMachineCart = machineCart.map((item) => item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
+      } else {
+        nextMachineCart = [...machineCart, { product, quantity: 1 }];
       }
-      return [...prev, { product, quantity: 1 }];
+      return { ...prev, [selectedMachineId]: nextMachineCart };
     });
 
-    toast.success(`Đã thêm ${product.name}`, { duration: 800 });
+    toast.success(`Đã thêm ${product.name} vào ${selectedMachineId}`, { duration: 900 });
 
     // Update recent products
     setRecentProductIds(prev => Array.from(new Set([product.id, ...prev])).slice(0, 10));
   };
 
-  const removeFromCart = (productId: string) => setCart((prev) => prev.filter((item) => item.product.id !== productId));
+  const removeFromCart = (productId: string) => {
+    setCartsByMachine((prev) => ({
+      ...prev,
+      [selectedMachineId]: (prev[selectedMachineId] || []).filter((item) => item.product.id !== productId),
+    }));
+  };
 
   const updateQuantity = (productId: string, delta: number) => {
-    setCart((prev) => prev.map((item) => {
-      if (item.product.id === productId) {
-        const newQty = item.quantity + delta;
-        return newQty > 0 ? { ...item, quantity: newQty } : item;
-      }
-      return item;
-    }).filter((item) => item.quantity > 0));
+    setCartsByMachine((prev) => ({
+      ...prev,
+      [selectedMachineId]: (prev[selectedMachineId] || []).map((item) => {
+        if (item.product.id === productId) {
+          const newQty = item.quantity + delta;
+          return newQty > 0 ? { ...item, quantity: newQty } : item;
+        }
+        return item;
+      }).filter((item) => item.quantity > 0),
+    }));
   };
 
   const sendOrder = () => {
+    const cart = cartsByMachine[selectedMachineId] || [];
     if (cart.length === 0) return;
     
     const newOrder: Order = {
@@ -184,8 +222,8 @@ export default function OrderPage() {
 
     setOrders([newOrder, ...orders]);
     setIsCartOpen(false);
-    setCart([]);
-    toast.success("Order thành công!", { icon: <Check className="w-5 h-5 text-green-500" /> });
+    setCartsByMachine((prev) => ({ ...prev, [selectedMachineId]: [] }));
+    toast.success(`Đã gửi order cho ${selectedMachineId}`, { icon: <Check className="w-5 h-5 text-green-500" /> });
     setTimeout(() => setActiveTab("preparing"), 400);
   };
 
@@ -194,25 +232,55 @@ export default function OrderPage() {
     toast.info(`Cập nhật trạng thái thành công`);
   };
 
+  const deleteHistoryOrder = (orderId: string) => {
+    setOrders((prev) => prev.filter((order) => order.id !== orderId));
+    setSelectedHistoryOrder(null);
+    toast.success("Đã xóa đơn khỏi lịch sử");
+  };
+
+  const clearSelectedMachineHistory = () => {
+    setOrders((prev) => prev.filter((order) => order.status !== "completed" || order.machineId !== selectedMachineId));
+    setSelectedHistoryOrder(null);
+    toast.success(`Đã xóa lịch sử của ${selectedMachineId}`);
+  };
+
+  const cart = cartsByMachine[selectedMachineId] || [];
   const totalAmount = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
   const activeOrders = orders.filter(o => o.status !== "completed");
-  const completedOrders = orders.filter(o => o.status === "completed");
   const preparingCount = activeOrders.length;
+  const selectedMachineOrders = activeOrdersByMachine[selectedMachineId] || [];
+  const selectedMachineCompletedOrders = completedOrdersByMachine[selectedMachineId] || [];
+  const selectedMachineHistoryTotal = selectedMachineCompletedOrders.reduce((sum, order) => sum + order.total, 0);
+  const selectedMachineStatus = machineStatuses[selectedMachineId] || "empty";
+  const selectedMachineCartCount = cartCountsByMachine[selectedMachineId] || 0;
   const cartAmountLabel = totalAmount >= 1000 ? `${Math.round(totalAmount / 1000)}k` : totalAmount.toLocaleString("vi-VN");
 
   return (
-    <div className="flex flex-col h-screen max-w-md mx-auto app-shell overflow-hidden relative border-x border-white/10">
+    <div className="flex flex-col min-h-dvh max-w-md mx-auto app-shell overflow-hidden relative border-x border-white/10">
       <Toaster theme="dark" richColors position="top-center" />
 
       {/* HEADER - COMPACT & FUNCTIONAL */}
       <header className="sticky top-0 z-20 glass px-4 py-3 flex items-center justify-between gap-2.5">
         <Button 
           variant="secondary" 
-          className="h-9 px-2.5 bg-primary/8 border border-primary/15 text-primary font-semibold text-xs rounded-lg gap-1 active:scale-95"
+          className={cn(
+            "h-9 px-2.5 bg-primary/8 border border-primary/15 text-primary font-semibold text-xs rounded-lg gap-1 active:scale-95 relative",
+            selectedMachineStatus !== "empty" && "pr-7 border-orange-400/35 bg-orange-400/10 text-orange-200"
+          )}
           onClick={() => setIsMachineGridOpen(true)}
         >
           {selectedMachineId} <ChevronDown className="w-4 h-4" />
+          {selectedMachineOrders.length > 0 && (
+            <span className="absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1 rounded-full bg-orange-500 text-white text-[10px] font-bold flex items-center justify-center border-2 border-background">
+              {selectedMachineOrders.length}
+            </span>
+          )}
+          {selectedMachineOrders.length === 0 && selectedMachineCartCount > 0 && (
+            <span className="absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center border-2 border-background">
+              {selectedMachineCartCount}
+            </span>
+          )}
         </Button>
 
         <div className="flex-1">
@@ -246,7 +314,7 @@ export default function OrderPage() {
       </header>
 
       {/* MAIN CONTENT AREA */}
-      <main className="flex-1 overflow-hidden flex flex-col">
+      <main className="flex-1 min-h-0 overflow-hidden flex flex-col pb-[calc(96px+env(safe-area-inset-bottom))]">
         <AnimatePresence mode="wait">
           <motion.div
             key={activeTab}
@@ -381,10 +449,10 @@ export default function OrderPage() {
               <div className="flex justify-between items-center mb-2 px-1">
                 <div className="flex items-center gap-2">
                   <ChefHat className="w-6 h-6 text-primary" />
-                  <h2 className="text-[22px] font-bold tracking-tight text-foreground">Đang làm</h2>
+                  <h2 className="text-[22px] font-bold tracking-tight text-foreground">Đơn đang xử lý</h2>
                 </div>
                 <Badge className="bg-primary/14 text-primary border-primary/25 font-semibold">
-                  {preparingCount} đang xử lý
+                  {preparingCount} đơn
                 </Badge>
               </div>
               
@@ -503,10 +571,31 @@ export default function OrderPage() {
         ) : (
           <ScrollArea className="h-full bg-secondary/5">
             <div className="p-4 space-y-4 pb-32">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-primary">{selectedMachineId}</p>
+                  {selectedMachineCompletedOrders.length > 0 && (
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      {selectedMachineCompletedOrders.length} đơn • {selectedMachineHistoryTotal.toLocaleString("vi-VN")}đ
+                    </p>
+                  )}
+                </div>
+                {selectedMachineCompletedOrders.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-10 w-10 rounded-xl bg-destructive/10 text-destructive border border-destructive/20 shrink-0"
+                    onClick={clearSelectedMachineHistory}
+                    aria-label={`Xóa lịch sử ${selectedMachineId}`}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                )}
+              </div>
               <h2 className="text-[22px] font-bold tracking-tight text-foreground flex items-center gap-2">
-                <History className="w-6 h-6" /> Lịch sử
+                <History className="w-6 h-6" /> Đơn đã giao
               </h2>
-              {completedOrders.length === 0 ? (
+              {selectedMachineCompletedOrders.length === 0 ? (
                 <div className="empty-state">
                   <div className="empty-state-icon">
                     <BarChart3 className="w-11 h-11" />
@@ -519,7 +608,7 @@ export default function OrderPage() {
                 </div>
               ) : (
                 <AnimatePresence>
-                  {completedOrders.map((order, index) => (
+                  {selectedMachineCompletedOrders.map((order, index) => (
                     <motion.button
                       key={order.id}
                       type="button"
@@ -580,6 +669,8 @@ export default function OrderPage() {
             <div className="grid grid-cols-5 gap-3 pb-8">
               {filteredMachines.map((m) => {
                 const status = machineStatuses[m.id] || "empty";
+                const machineOrderCount = activeOrdersByMachine[m.id]?.length || 0;
+                const machineCartCount = cartCountsByMachine[m.id] || 0;
                 return (
                   <button
                     key={m.id}
@@ -592,17 +683,35 @@ export default function OrderPage() {
                       "aspect-square rounded-2xl flex flex-col items-center justify-center transition-all relative border-2 active:scale-90",
                       selectedMachineId === m.id && "border-primary bg-primary/20 scale-105 z-10 shadow-glow",
                       m.isOffline ? "bg-muted/10 border-transparent text-muted-foreground opacity-30" : 
+                      status === "empty" && machineCartCount > 0 ? "bg-primary/10 border-primary/40 text-primary" :
                       status === "empty" ? "bg-secondary/30 border-border/20 text-muted-foreground" :
-                      status === "pending" ? "bg-cyan-500/10 border-cyan-500 text-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.3)]" :
-                      status === "preparing" ? "bg-yellow-500/10 border-yellow-500 text-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.3)]" :
-                      "bg-primary/10 border-primary text-primary"
+                      status === "pending" ? "bg-orange-500/12 border-orange-400 text-orange-300 shadow-[0_0_10px_rgba(249,115,22,0.22)]" :
+                      status === "preparing" ? "bg-yellow-500/10 border-yellow-500 text-yellow-400 shadow-[0_0_10px_rgba(234,179,8,0.22)]" :
+                      "bg-cyan-500/10 border-cyan-400 text-cyan-300 shadow-[0_0_10px_rgba(6,182,212,0.22)]"
                     )}
                   >
                     <span className="text-[10px] font-bold opacity-50 leading-none mb-1">MÁY</span>
                     <span className="text-xl font-black tracking-tighter leading-none">{m.number}</span>
+                    {machineOrderCount > 0 && (
+                      <span className="mt-1 rounded-full bg-current/15 px-1.5 py-0.5 text-[8px] font-bold leading-none">
+                        {machineOrderCount} đơn
+                      </span>
+                    )}
+                    {machineOrderCount === 0 && machineCartCount > 0 && (
+                      <span className="mt-1 rounded-full bg-current/15 px-1.5 py-0.5 text-[8px] font-bold leading-none">
+                        giỏ {machineCartCount}
+                      </span>
+                    )}
                     
                     {status !== "empty" && !m.isOffline && (
-                      <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-current animate-pulse" />
+                      <span className="absolute top-1 right-1 min-w-4 h-4 px-1 rounded-full bg-orange-500 text-white text-[8px] font-black flex items-center justify-center border border-background animate-pulse">
+                        {machineOrderCount}
+                      </span>
+                    )}
+                    {status === "empty" && machineCartCount > 0 && !m.isOffline && (
+                      <span className="absolute top-1 right-1 min-w-4 h-4 px-1 rounded-full bg-primary text-primary-foreground text-[8px] font-black flex items-center justify-center border border-background">
+                        {machineCartCount}
+                      </span>
                     )}
                   </button>
                 );
@@ -664,11 +773,18 @@ export default function OrderPage() {
                 </div>
               </ScrollArea>
 
-              <SheetFooter className="p-6 border-t border-border/50 bg-secondary/10 shrink-0">
+              <SheetFooter className="p-6 border-t border-border/50 bg-secondary/10 shrink-0 flex-col gap-4">
                 <div className="flex items-center justify-between w-full">
                   <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Tổng tiền</span>
                   <span className="text-2xl font-bold text-primary">{selectedHistoryOrder.total.toLocaleString("vi-VN")}đ</span>
                 </div>
+                <Button
+                  variant="ghost"
+                  className="w-full h-11 rounded-xl bg-destructive/10 text-destructive border border-destructive/20 font-semibold"
+                  onClick={() => deleteHistoryOrder(selectedHistoryOrder.id)}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" /> Xóa đơn này
+                </Button>
               </SheetFooter>
             </>
           )}
@@ -729,8 +845,8 @@ export default function OrderPage() {
           <SheetHeader className="px-8 py-6 border-b border-border/50 shrink-0">
             <div className="flex justify-between items-center">
               <div>
-                <SheetTitle className="text-3xl font-black tracking-tighter uppercase neon-text">Giỏ hàng</SheetTitle>
-                <p className="text-[10px] font-bold text-muted-foreground tracking-widest uppercase mt-1">Đang phục vụ {selectedMachineId}</p>
+                <SheetTitle className="text-3xl font-black tracking-tighter uppercase neon-text">Giỏ {selectedMachineId}</SheetTitle>
+                <p className="text-[10px] font-bold text-muted-foreground tracking-widest uppercase mt-1">Mỗi máy có giỏ riêng</p>
               </div>
               <Button variant="ghost" size="icon" onClick={() => setIsCartOpen(false)} className="rounded-full bg-secondary/50 h-10 w-10">
                 <X className="w-5 h-5" />
@@ -810,7 +926,7 @@ export default function OrderPage() {
       </Sheet>
 
       {/* BOTTOM NAVIGATION TABS */}
-      <div className="absolute bottom-0 left-0 right-0 h-20 glass border-t border-white/6 flex items-center justify-around px-4 z-30 rounded-t-3xl">
+      <div className="bottom-nav glass border-t border-white/6 flex items-center justify-around px-4 z-30 rounded-t-3xl">
         <button 
           onClick={() => setActiveTab("menu")}
           className={cn(
@@ -819,7 +935,7 @@ export default function OrderPage() {
           )}
         >
           <span className="nav-icon-wrap"><Plus className="w-5 h-5 stroke-[2.5]" /></span>
-          <span className="nav-label">Thực đơn</span>
+          <span className="nav-label">Gọi món</span>
         </button>
         
         <button 
@@ -830,7 +946,7 @@ export default function OrderPage() {
           )}
         >
           <span className="nav-icon-wrap"><ChefHat className="w-5 h-5 stroke-[2.5]" /></span>
-          <span className="nav-label">Đang làm</span>
+          <span className="nav-label">Đơn hàng</span>
           {preparingCount > 0 && (
             <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center border border-background shadow-lg animate-bounce">
               {preparingCount}
@@ -846,7 +962,7 @@ export default function OrderPage() {
           )}
         >
           <span className="nav-icon-wrap"><History className="w-5 h-5 stroke-[2.5]" /></span>
-          <span className="nav-label">Lịch sử</span>
+          <span className="nav-label">Đã giao</span>
         </button>
       </div>
     </div>
