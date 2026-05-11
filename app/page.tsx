@@ -632,9 +632,9 @@ export default function OrderPage() {
               ) : (
                 <div className="grid gap-2">
                   {completedMachineSummaries.map((group) => (
-                    <motion.button
+                    <motion.div
                       key={group.machineId}
-                      className="block w-full text-left"
+                      className="block w-full text-left cursor-pointer"
                       onClick={() => setSelectedHistoryMachineId(group.machineId)}
                       whileTap={{ scale: 0.98 }}
                     >
@@ -663,7 +663,7 @@ export default function OrderPage() {
                           </div>
                         </CardContent>
                       </Card>
-                    </motion.button>
+                    </motion.div>
                   ))}
                 </div>
               )}
