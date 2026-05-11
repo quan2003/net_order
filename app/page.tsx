@@ -58,6 +58,7 @@ export default function OrderPage() {
   const [isMachineGridOpen, setIsMachineGridOpen] = useState(false);
   const [recipeProduct, setRecipeProduct] = useState<Product | null>(null);
   const [selectedHistoryOrder, setSelectedHistoryOrder] = useState<Order | null>(null);
+  const [selectedHistoryMachineId, setSelectedHistoryMachineId] = useState<string | null>(null);
   const [addingId, setAddingId] = useState<string | null>(null);
   const [cartPulse, setCartPulse] = useState(false);
   const [hasHydratedOrders, setHasHydratedOrders] = useState(false);
@@ -161,6 +162,15 @@ export default function OrderPage() {
     return () => window.clearInterval(cleanupTimer);
   }, []);
 
+  useEffect(() => {
+    if (selectedHistoryMachineId) {
+      const hasMachineOrders = completedOrdersByMachine[selectedHistoryMachineId]?.length > 0;
+      if (!hasMachineOrders) {
+        setSelectedHistoryMachineId(null);
+      }
+    }
+  }, [completedOrdersByMachine, selectedHistoryMachineId]);
+
   // Actions
   const addToCart = (product: Product) => {
     setAddingId(product.id);
@@ -238,10 +248,16 @@ export default function OrderPage() {
     toast.success("Đã xóa đơn khỏi lịch sử");
   };
 
-  const clearSelectedMachineHistory = () => {
-    setOrders((prev) => prev.filter((order) => order.status !== "completed" || order.machineId !== selectedMachineId));
+  const clearMachineHistory = (machineId: string) => {
+    setOrders((prev) => prev.filter((order) => order.status !== "completed" || order.machineId !== machineId));
     setSelectedHistoryOrder(null);
-    toast.success(`Đã xóa lịch sử của ${selectedMachineId}`);
+    toast.success(`Đã xóa lịch sử của ${machineId}`);
+  };
+
+  const clearCompletedHistory = () => {
+    setOrders((prev) => prev.filter((order) => order.status !== "completed"));
+    setSelectedHistoryOrder(null);
+    toast.success("Đã xóa toàn bộ lịch sử đã giao");
   };
 
   const cart = cartsByMachine[selectedMachineId] || [];
@@ -250,8 +266,15 @@ export default function OrderPage() {
   const activeOrders = orders.filter(o => o.status !== "completed");
   const preparingCount = activeOrders.length;
   const selectedMachineOrders = activeOrdersByMachine[selectedMachineId] || [];
-  const selectedMachineCompletedOrders = completedOrdersByMachine[selectedMachineId] || [];
-  const selectedMachineHistoryTotal = selectedMachineCompletedOrders.reduce((sum, order) => sum + order.total, 0);
+  const completedMachineSummaries = Object.entries(completedOrdersByMachine).map(([machineId, machineOrders]) => ({
+    machineId,
+    orders: machineOrders,
+    total: machineOrders.reduce((sum, order) => sum + order.total, 0),
+    itemCount: machineOrders.reduce((sum, order) => sum + order.items.reduce((itemSum, item) => itemSum + item.quantity, 0), 0),
+  }));
+  const completedHistoryTotal = completedMachineSummaries.reduce((sum, group) => sum + group.total, 0);
+  const completedHistoryOrderCount = completedMachineSummaries.reduce((sum, group) => sum + group.orders.length, 0);
+  const completedHistoryOrders = completedMachineSummaries.flatMap((group) => group.orders);
   const selectedMachineStatus = machineStatuses[selectedMachineId] || "empty";
   const selectedMachineCartCount = cartCountsByMachine[selectedMachineId] || 0;
   const cartAmountLabel = totalAmount >= 1000 ? `${Math.round(totalAmount / 1000)}k` : totalAmount.toLocaleString("vi-VN");
@@ -573,20 +596,20 @@ export default function OrderPage() {
             <div className="p-4 space-y-4 pb-32">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-xs font-semibold text-primary">{selectedMachineId}</p>
-                  {selectedMachineCompletedOrders.length > 0 && (
+                  <p className="text-xs font-semibold text-primary">Tất cả máy đã giao</p>
+                  {completedHistoryOrders.length > 0 && (
                     <p className="text-[11px] text-muted-foreground mt-0.5">
-                      {selectedMachineCompletedOrders.length} đơn • {selectedMachineHistoryTotal.toLocaleString("vi-VN")}đ
+                      {completedMachineSummaries.length} máy • {completedHistoryOrderCount} đơn • {completedHistoryTotal.toLocaleString("vi-VN")}đ
                     </p>
                   )}
                 </div>
-                {selectedMachineCompletedOrders.length > 0 && (
+                {completedHistoryOrders.length > 0 && (
                   <Button
                     variant="ghost"
                     size="icon"
                     className="h-10 w-10 rounded-xl bg-destructive/10 text-destructive border border-destructive/20 shrink-0"
-                    onClick={clearSelectedMachineHistory}
-                    aria-label={`Xóa lịch sử ${selectedMachineId}`}
+                    onClick={clearCompletedHistory}
+                    aria-label="Xóa toàn bộ lịch sử đã giao"
                   >
                     <Trash2 className="w-4 h-4" />
                   </Button>
@@ -595,7 +618,7 @@ export default function OrderPage() {
               <h2 className="text-[22px] font-bold tracking-tight text-foreground flex items-center gap-2">
                 <History className="w-6 h-6" /> Đơn đã giao
               </h2>
-              {selectedMachineCompletedOrders.length === 0 ? (
+              {completedHistoryOrders.length === 0 ? (
                 <div className="empty-state">
                   <div className="empty-state-icon">
                     <BarChart3 className="w-11 h-11" />
@@ -607,39 +630,42 @@ export default function OrderPage() {
                   </Button>
                 </div>
               ) : (
-                <AnimatePresence>
-                  {selectedMachineCompletedOrders.map((order, index) => (
+                <div className="grid gap-2">
+                  {completedMachineSummaries.map((group) => (
                     <motion.button
-                      key={order.id}
-                      type="button"
+                      key={group.machineId}
                       className="block w-full text-left"
-                      onClick={() => setSelectedHistoryOrder(order)}
-                      initial={{ opacity: 0, y: 12 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, x: -12 }}
-                      transition={{ duration: 0.18, delay: Math.min(index * 0.03, 0.15) }}
-                      whileTap={{ scale: 0.985 }}
+                      onClick={() => setSelectedHistoryMachineId(group.machineId)}
+                      whileTap={{ scale: 0.98 }}
                     >
-                      <Card className="bg-card/65 border-white/8 rounded-xl py-0 gap-0 hover:border-primary/25 hover:bg-card/85 transition-colors">
-                        <CardContent className="p-4 flex justify-between items-center gap-4">
-                          <div className="flex flex-col min-w-0">
-                            <span className="font-semibold text-primary">{order.machineId}</span>
-                            <span className="text-[11px] font-medium text-muted-foreground">
-                              {order.time} • {order.items.reduce((sum, item) => sum + item.quantity, 0)} món
-                            </span>
-                            <span className="text-[10px] text-muted-foreground/70 mt-1">
-                              Bấm để xem lại chi tiết
-                            </span>
+                      <Card className="bg-card/75 border-white/8 rounded-xl py-0 gap-0 hover:bg-card/90 hover:border-primary/25 transition-colors">
+                        <CardContent className="p-4 flex items-center justify-between gap-3">
+                          <div className="min-w-0 text-left">
+                            <p className="text-base font-bold text-primary">{group.machineId}</p>
+                            <p className="text-[12px] text-muted-foreground mt-0.5">
+                              {group.orders.length} đơn • {group.itemCount} món
+                            </p>
                           </div>
-                          <div className="text-right shrink-0">
-                            <p className="font-semibold text-sm">{order.total.toLocaleString("vi-VN")}đ</p>
-                            <Badge className="bg-green-500/16 text-green-400 border-none text-[9px] h-5 font-semibold">Đã giao</Badge>
+                          <div className="flex items-center gap-3 shrink-0">
+                            <p className="text-base font-bold text-foreground">{group.total.toLocaleString("vi-VN")}đ</p>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 rounded-lg bg-destructive/10 text-destructive border border-destructive/20 relative z-10"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                clearMachineHistory(group.machineId);
+                              }}
+                              aria-label={`Xóa lịch sử ${group.machineId}`}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
                           </div>
                         </CardContent>
                       </Card>
                     </motion.button>
                   ))}
-                </AnimatePresence>
+                </div>
               )}
             </div>
           </ScrollArea>
@@ -718,6 +744,83 @@ export default function OrderPage() {
               })}
             </div>
           </ScrollArea>
+        </SheetContent>
+      </Sheet>
+
+      {/* MACHINE HISTORY SHEET */}
+      <Sheet open={!!selectedHistoryMachineId} onOpenChange={(open) => !open && setSelectedHistoryMachineId(null)}>
+        <SheetContent side="bottom" showCloseButton={false} className="h-[85vh] rounded-t-[2.5rem] border-t-primary/50 p-0 overflow-hidden flex flex-col bg-card">
+          {selectedHistoryMachineId && (() => {
+            const group = completedMachineSummaries.find(g => g.machineId === selectedHistoryMachineId);
+            if (!group) return null;
+            return (
+              <>
+                <SheetHeader className="px-6 py-5 border-b border-border/50 shrink-0">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <SheetTitle className="text-2xl font-bold tracking-tight text-foreground">
+                        Lịch sử {group.machineId}
+                      </SheetTitle>
+                      <p className="text-xs font-medium text-muted-foreground mt-1">
+                        Tổng: {group.total.toLocaleString("vi-VN")}đ • {group.orders.length} đơn • {group.itemCount} món
+                      </p>
+                    </div>
+                    <Button variant="ghost" size="icon" onClick={() => setSelectedHistoryMachineId(null)} className="rounded-full bg-secondary/50 h-10 w-10">
+                      <X className="w-5 h-5" />
+                    </Button>
+                  </div>
+                </SheetHeader>
+
+                <ScrollArea className="flex-1 px-6 py-5 bg-secondary/5">
+                  <div className="space-y-3 pb-6">
+                    {group.orders.map((order, index) => (
+                      <motion.button
+                        key={order.id}
+                        type="button"
+                        className="block w-full text-left"
+                        onClick={() => setSelectedHistoryOrder(order)}
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.18, delay: Math.min(index * 0.03, 0.15) }}
+                        whileTap={{ scale: 0.985 }}
+                      >
+                        <Card className="bg-card/65 border-white/8 rounded-xl py-0 gap-0 hover:border-primary/25 hover:bg-card/85 transition-colors">
+                          <CardContent className="p-4 flex justify-between items-center gap-4">
+                            <div className="flex flex-col min-w-0">
+                              <span className="font-semibold text-primary">{order.time}</span>
+                              <span className="text-[11px] font-medium text-muted-foreground mt-0.5">
+                                {order.items.reduce((sum, item) => sum + item.quantity, 0)} món
+                              </span>
+                              <span className="text-[10px] text-muted-foreground/70 mt-1">
+                                Bấm xem chi tiết
+                              </span>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <p className="font-semibold text-sm">{order.total.toLocaleString("vi-VN")}đ</p>
+                              <Badge className="bg-green-500/16 text-green-400 border-none text-[9px] h-5 font-semibold mt-1">Đã giao</Badge>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </motion.button>
+                    ))}
+                  </div>
+                </ScrollArea>
+                
+                <SheetFooter className="p-6 border-t border-border/50 bg-secondary/10 shrink-0">
+                  <Button
+                    variant="ghost"
+                    className="w-full h-11 rounded-xl bg-destructive/10 text-destructive border border-destructive/20 font-semibold"
+                    onClick={() => {
+                      clearMachineHistory(group.machineId);
+                      setSelectedHistoryMachineId(null);
+                    }}
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" /> Xóa toàn bộ lịch sử máy này
+                  </Button>
+                </SheetFooter>
+              </>
+            );
+          })()}
         </SheetContent>
       </Sheet>
 
