@@ -5,7 +5,6 @@ import { Search, ShoppingCart, Plus, Info, X, Check, Truck, ChefHat, ChevronDown
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Sheet,
@@ -351,7 +350,7 @@ export default function OrderPage() {
           <>
             {/* CATEGORY SELECTOR - HORIZONTAL GHOST STYLE */}
             <div className="bg-background/35 py-2.5 shrink-0 border-b border-white/6">
-              <ScrollArea className="w-full whitespace-nowrap">
+              <div className="w-full overflow-x-auto whitespace-nowrap no-scrollbar">
                 <div className="flex px-4 gap-2.5">
                   {CATEGORIES.map((cat) => (
                     <button
@@ -368,11 +367,10 @@ export default function OrderPage() {
                     </button>
                   ))}
                 </div>
-                <ScrollBar orientation="horizontal" className="hidden" />
-              </ScrollArea>
+              </div>
             </div>
 
-            <ScrollArea className="flex-1 min-h-0">
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
               <div className="flex flex-col gap-4 p-4 pb-32">
                 
                 {/* RECENT ORDERS - QUICK ACCESS */}
@@ -464,10 +462,10 @@ export default function OrderPage() {
                   </div>
                 </div>
               </div>
-            </ScrollArea>
+            </div>
           </>
         ) : activeTab === "preparing" ? (
-          <ScrollArea className="flex-1 min-h-0 bg-secondary/8">
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain bg-secondary/8">
             <div className="p-4 space-y-4 pb-32">
               <div className="flex justify-between items-center mb-2 px-1">
                 <div className="flex items-center gap-2">
@@ -590,9 +588,9 @@ export default function OrderPage() {
                 </AnimatePresence>
               )}
             </div>
-          </ScrollArea>
+          </div>
         ) : (
-          <ScrollArea className="flex-1 min-h-0 bg-secondary/5">
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain bg-secondary/5">
             <div className="p-4 space-y-4 pb-32">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -668,7 +666,7 @@ export default function OrderPage() {
                 </div>
               )}
             </div>
-          </ScrollArea>
+          </div>
         )}
           </motion.div>
         </AnimatePresence>
@@ -691,7 +689,7 @@ export default function OrderPage() {
             </div>
           </SheetHeader>
           
-          <ScrollArea className="flex-1 p-6">
+          <div className="flex-1 p-6 overflow-y-auto overscroll-contain">
             <div className="grid grid-cols-5 gap-3 pb-8">
               {filteredMachines.map((m) => {
                 const status = machineStatuses[m.id] || "empty";
@@ -743,7 +741,7 @@ export default function OrderPage() {
                 );
               })}
             </div>
-          </ScrollArea>
+          </div>
         </SheetContent>
       </Sheet>
 
@@ -771,7 +769,7 @@ export default function OrderPage() {
                   </div>
                 </SheetHeader>
 
-                <ScrollArea className="flex-1 px-6 py-5 bg-secondary/5">
+                <div className="flex-1 px-6 py-5 overflow-y-auto overscroll-contain bg-secondary/5">
                   <div className="space-y-3 pb-6">
                     {group.orders.map((order, index) => (
                       <motion.button
@@ -804,7 +802,7 @@ export default function OrderPage() {
                       </motion.button>
                     ))}
                   </div>
-                </ScrollArea>
+                </div>
                 
                 <SheetFooter className="p-6 border-t border-border/50 bg-secondary/10 shrink-0">
                   <Button
@@ -843,7 +841,7 @@ export default function OrderPage() {
                 </div>
               </SheetHeader>
 
-              <ScrollArea className="flex-1 px-6 py-5">
+              <div className="flex-1 px-6 py-5 overflow-y-auto overscroll-contain">
                 <div className="space-y-3 pb-6">
                   {selectedHistoryOrder.items.map((item) => (
                     <div key={item.product.id} className="flex items-center gap-3 p-3 rounded-2xl bg-secondary/20 border border-white/8">
@@ -874,7 +872,7 @@ export default function OrderPage() {
                     </div>
                   ))}
                 </div>
-              </ScrollArea>
+              </div>
 
               <SheetFooter className="p-6 border-t border-border/50 bg-secondary/10 shrink-0 flex-col gap-4">
                 <div className="flex items-center justify-between w-full">
@@ -957,7 +955,7 @@ export default function OrderPage() {
             </div>
           </SheetHeader>
 
-          <ScrollArea className="flex-1 px-8 py-6">
+          <div className="flex-1 px-8 py-6 overflow-y-auto overscroll-contain">
             <AnimatePresence initial={false}>
               {cart.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-20 text-muted-foreground opacity-30">
@@ -1010,7 +1008,7 @@ export default function OrderPage() {
                 </div>
               )}
             </AnimatePresence>
-          </ScrollArea>
+          </div>
 
           <SheetFooter className="p-8 border-t border-border/50 bg-secondary/10 flex-col gap-6 shrink-0">
             <div className="flex justify-between items-center w-full px-2">
