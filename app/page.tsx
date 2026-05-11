@@ -279,8 +279,9 @@ export default function OrderPage() {
   const cartAmountLabel = totalAmount >= 1000 ? `${Math.round(totalAmount / 1000)}k` : totalAmount.toLocaleString("vi-VN");
 
   return (
-    <div className="flex flex-col min-h-dvh max-w-md mx-auto app-shell overflow-hidden relative border-x border-white/10">
-      <Toaster theme="dark" richColors position="top-center" />
+    <div className="fixed inset-0 w-full h-full overflow-hidden bg-[#050816] flex justify-center">
+      <div className="w-full h-full max-w-md flex flex-col relative app-shell overflow-hidden border-x border-white/10 shadow-2xl">
+        <Toaster theme="dark" richColors position="top-center" />
 
       {/* HEADER - COMPACT & FUNCTIONAL */}
       <header className="sticky top-0 z-20 glass px-4 py-3 flex items-center justify-between gap-2.5">
@@ -340,7 +341,7 @@ export default function OrderPage() {
         <AnimatePresence mode="wait">
           <motion.div
             key={activeTab}
-            className="flex-1 overflow-hidden flex flex-col"
+            className="flex-1 min-h-0 overflow-hidden flex flex-col"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
@@ -370,7 +371,7 @@ export default function OrderPage() {
               </div>
             </div>
 
-            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
+            <div className="flex-1 min-h-0 overflow-y-auto touch-pan-y" style={{ WebkitOverflowScrolling: "touch" }}>
               <div className="flex flex-col gap-4 p-4 pb-32">
                 
                 {/* RECENT ORDERS - QUICK ACCESS */}
@@ -465,7 +466,7 @@ export default function OrderPage() {
             </div>
           </>
         ) : activeTab === "preparing" ? (
-          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain bg-secondary/8">
+          <div className="flex-1 min-h-0 overflow-y-auto touch-pan-y bg-secondary/8" style={{ WebkitOverflowScrolling: "touch" }}>
             <div className="p-4 space-y-4 pb-32">
               <div className="flex justify-between items-center mb-2 px-1">
                 <div className="flex items-center gap-2">
@@ -590,7 +591,7 @@ export default function OrderPage() {
             </div>
           </div>
         ) : (
-          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain bg-secondary/5">
+          <div className="flex-1 min-h-0 overflow-y-auto touch-pan-y bg-secondary/5" style={{ WebkitOverflowScrolling: "touch" }}>
             <div className="p-4 space-y-4 pb-32">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -689,7 +690,7 @@ export default function OrderPage() {
             </div>
           </SheetHeader>
           
-          <div className="flex-1 p-6 overflow-y-auto overscroll-contain">
+          <div className="flex-1 p-6 overflow-y-auto touch-pan-y" style={{ WebkitOverflowScrolling: "touch" }}>
             <div className="grid grid-cols-5 gap-3 pb-8">
               {filteredMachines.map((m) => {
                 const status = machineStatuses[m.id] || "empty";
@@ -769,7 +770,7 @@ export default function OrderPage() {
                   </div>
                 </SheetHeader>
 
-                <div className="flex-1 px-6 py-5 overflow-y-auto overscroll-contain bg-secondary/5">
+                <div className="flex-1 px-6 py-5 overflow-y-auto touch-pan-y bg-secondary/5" style={{ WebkitOverflowScrolling: "touch" }}>
                   <div className="space-y-3 pb-6">
                     {group.orders.map((order, index) => (
                       <motion.button
@@ -841,7 +842,7 @@ export default function OrderPage() {
                 </div>
               </SheetHeader>
 
-              <div className="flex-1 px-6 py-5 overflow-y-auto overscroll-contain">
+              <div className="flex-1 px-6 py-5 overflow-y-auto touch-pan-y" style={{ WebkitOverflowScrolling: "touch" }}>
                 <div className="space-y-3 pb-6">
                   {selectedHistoryOrder.items.map((item) => (
                     <div key={item.product.id} className="flex items-center gap-3 p-3 rounded-2xl bg-secondary/20 border border-white/8">
@@ -955,7 +956,7 @@ export default function OrderPage() {
             </div>
           </SheetHeader>
 
-          <div className="flex-1 px-8 py-6 overflow-y-auto overscroll-contain">
+          <div className="flex-1 px-8 py-6 overflow-y-auto touch-pan-y" style={{ WebkitOverflowScrolling: "touch" }}>
             <AnimatePresence initial={false}>
               {cart.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-20 text-muted-foreground opacity-30">
@@ -1065,6 +1066,7 @@ export default function OrderPage() {
           <span className="nav-icon-wrap"><History className="w-5 h-5 stroke-[2.5]" /></span>
           <span className="nav-label">Đã giao</span>
         </button>
+      </div>
       </div>
     </div>
   );

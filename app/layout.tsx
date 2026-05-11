@@ -23,7 +23,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="vi" className="h-full">
-      <body className={`${inter.className} h-full bg-background overflow-hidden`}>
+      <body className={`${inter.className} h-[100dvh] bg-background overscroll-none`}>
         {children}
       </body>
     </html>
